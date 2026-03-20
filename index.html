@@ -146,4 +146,146 @@
     });
 
     // Navegacion
-    function switchScreen(screen
+    function switchScreen(screenName) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        
+        document.getElementById(`screen-${screenName}`).classList.add('active');
+        if(screenName === 'captura') document.getElementById('btn-nav-captura').classList.add('active');
+        else document.getElementById('btn-nav-exportar').classList.add('active');
+
+        if(screenName === 'exportar') actualizarListaExportar();
+    }
+
+    // Logica GPS
+    function capturarGPS() {
+        const inputCoords = document.getElementById('coordenadas');
+        const inputPrec = document.getElementById('precision');
+        const btnGps = document.querySelector('.geo-btn-full');
+
+        inputCoords.value = "Capturando...";
+        inputPrec.value = "...";
+        btnGps.disabled = true;
+        btnGps.innerText = "⏳ Obteniendo señal...";
+
+        if (!navigator.geolocation) {
+            alert("Navegador no soporta GPS");
+            restaurarBoton();
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lng = position.coords.longitude.toFixed(6);
+                const acc = position.coords.accuracy.toFixed(1);
+                inputCoords.value = `${lat}, ${lng}`;
+                inputPrec.value = `${acc}m`;
+                restaurarBoton();
+            },
+            (error) => {
+                alert("Error al obtener ubicacion. Verifique permisos de GPS.");
+                inputCoords.value = "";
+                inputPrec.value = "";
+                console.error(error);
+                restaurarBoton();
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+
+        function restaurarBoton() {
+            btnGps.disabled = false;
+            btnGps.innerHTML = "📍 Capturar Coordenadas GPS";
+        }
+    }
+
+    // Guardar
+    document.getElementById('frmInventario').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if(!document.getElementById('coordenadas').value) {
+            alert("Por favor caputure las coordenadas GPS antes de guardar.");
+            return;
+        }
+
+        const nuevoRegistro = {
+            coordenadas: document.getElementById('coordenadas').value,
+            precision: document.getElementById('precision').value,
+            circuito: document.getElementById('circuito').value,
+            seccion: document.getElementById('seccion').value,
+            tipoConexion: document.getElementById('tipoConexion').value,
+            direccion: document.getElementById('direccion').value,
+            equipo: document.getElementById('equipo').value,
+            tipoBanco: document.getElementById('tipoBanco').value,
+            kva: parseFloat(document.getElementById('kva').value) || 0,
+            i1: parseFloat(document.getElementById('i1').value) || 0,
+            i2: parseFloat(document.getElementById('i2').value) || 0,
+            i3: parseFloat(document.getElementById('i3').value) || 0,
+            ineutro: parseFloat(document.getElementById('ineutro').value) || 0,
+            fecha: new Date().toISOString()
+        };
+
+        try {
+            const idGen = await db.registros.add(nuevoRegistro);
+            alert("Guardado con exito localmente. ID: " + idGen);
+            document.getElementById('frmInventario').reset();
+            document.getElementById('coordenadas').value = "";
+            document.getElementById('precision').value = "";
+        } catch (err) {
+            alert("Error critico al guardar en base de datos.");
+            console.error(err);
+        }
+    });
+
+    // Vista Exportar
+    async function actualizarListaExportar() {
+        const contenedor = document.getElementById('listadoRegistros');
+        const contador = document.getElementById('contadorRegistros');
+        const datos = await db.registros.reverse().toArray();
+        contador.innerText = datos.length;
+        contenedor.innerHTML = "";
+        
+        datos.slice(0, 5).forEach(reg => {
+            const div = document.createElement('div');
+            div.className = 'registro-card';
+            div.innerHTML = `<div class="registro-header">ID: ${reg.id} | Prec: ${reg.precision} | ${reg.fecha.split('T')[0]}</div>
+                             <div class="registro-main">${reg.circuito} - ${reg.equipo}</div>`;
+            contenedor.appendChild(div);
+        });
+        if(datos.length > 5) {
+            contenedor.innerHTML += '<p style="text-align:center; font-size:12px; color:#888;">... ultimos 5 registros visualizados ...</p>';
+        }
+    }
+
+    // Exportacion
+    function descargar(contenido, nombre, tipo) {
+        const blob = new Blob([contenido], { type: tipo });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = nombre;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    async function exportarCSV() {
+        const datos = await db.registros.toArray();
+        if(!datos.length) return alert("No hay datos para exportar");
+        const headers = ["ID", "Fecha", "Coordenadas", "Precision", "Circuito", "Seccion", "Conexion", "Direccion", "Equipo", "TipoBanco", "KVA", "I1", "I2", "I3", "INeutro"];
+        let csv = headers.join(";") + "\n";
+        datos.forEach(r => {
+            csv += [r.id, r.fecha, `"${r.coordenadas}"`, `"${r.precision}"`, `"${r.circuito}"`, `"${r.seccion}"`, r.tipoConexion, `"${r.direccion}"`, `"${r.equipo}"`, `"${r.tipoBanco}"`, r.kva, r.i1, r.i2, r.i3, r.ineutro].join(";") + "\n";
+        });
+        const f = new Date().toISOString().split('T')[0];
+        descargar(csv, `inventario_${f}.csv`, "text/csv;charset=utf-8;");
+    }
+
+    async function exportarJSON() {
+        const datos = await db.registros.toArray();
+        if(!datos.length) return alert("No hay datos para exportar");
+        const f = new Date().toISOString().split('T')[0];
+        descargar(JSON.stringify(datos, null, 2), `inventario_${f}.json`, "application/json");
+    }
+</script>
+</body>
+</html>
