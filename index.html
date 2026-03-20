@@ -10,11 +10,12 @@
             --primary-color: #007bff;
             --secondary-color: #6c757d;
             --bg-color: #f8f9fa;
+            --success-color: #28a745;
         }
         body { font-family: sans-serif; margin: 0; padding: 10px; background-color: var(--bg-color); padding-bottom: 70px; }
         .container { max-width: 600px; margin: auto; }
         
-        /* Estilos de navegaci贸n de pantallas */
+        /* Estilos de navegación de pantallas */
         .screen { display: none; }
         .screen.active { display: block; }
 
@@ -24,9 +25,11 @@
         input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         input[readonly] { background-color: #e9ecef; color: #495057; }
         
-        /* Contenedor especial para coordenadas */
-        .geo-input-group { display: flex; gap: 5px; }
-        .geo-btn { width: 25%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px;}
+        /* Contenedor especial para coordenadas y precisión */
+        .geo-input-group { display: flex; gap: 5px; align-items: center; }
+        #coordenadas { flex: 2; } /* Más ancho para lat/lng */
+        #precision { flex: 1; text-align: center; font-size: 14px; } /* Más estrecho para los metros */
+        .geo-btn { width: 60px; padding: 12px 0; background-color: var(--success-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; display: flex; justify-content: center; }
 
         /* Estilos de botones */
         .btn-main { width: 100%; padding: 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; transition: background 0.3s; }
@@ -34,15 +37,15 @@
         
         .btn-export { width: 100%; padding: 12px; background-color: #ffc107; color: #212529; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 10px; }
 
-        /* Barra de navegaci贸n inferior */
+        /* Barra de navegación inferior */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: white; border-top: 1px solid #ddd; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
         .nav-item { background: none; border: none; font-size: 16px; color: var(--secondary-color); cursor: pointer; padding: 10px; }
         .nav-item.active { color: var(--primary-color); font-weight: bold; }
 
-        /* Estilo de la lista de registros (feedback visual) */
+        /* Estilo de la lista de registros */
         #listadoRegistros { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px; }
         .registro-card { background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee;}
-        .registro-header { font-size: 14px; color: #888; margin-bottom: 4px;}
+        .registro-header { font-size: 12px; color: #888; margin-bottom: 4px;}
         .registro-main { font-weight: bold; color: #333;}
     </style>
 </head>
@@ -59,25 +62,26 @@
             </div>
 
             <div class="form-group">
-                <label>Coordenadas (Lat, Long):</label>
+                <label>Ubicación (Coordenadas | Precisión):</label>
                 <div class="geo-input-group">
-                    <input type="text" id="coordenadas" readonly placeholder="Click en GPS para capturar">
-                    <button type="button" class="geo-btn" onclick="capturarGPS()">馃搷 GPS</button>
+                    <input type="text" id="coordenadas" readonly placeholder="Lat, Long">
+                    <input type="text" id="precision" readonly placeholder="Prec.">
+                    <button type="button" class="geo-btn" onclick="capturarGPS()" title="Capturar GPS">📍</button>
                 </div>
             </div>
 
             <div class="form-group"><label>Circuito:</label><input type="text" id="circuito" required></div>
-            <div class="form-group"><label>Secci贸n:</label><input type="text" id="seccion"></div>
+            <div class="form-group"><label>Sección:</label><input type="text" id="seccion"></div>
 
             <div class="form-group">
-                <label>Tipo de Conexi贸n:</label>
+                <label>Tipo de Conexión:</label>
                 <select id="tipoConexion">
                     <option value="Paso">Paso</option>
                     <option value="Amarre">Amarre</option>
                 </select>
             </div>
 
-            <div class="form-group"><label>Direcci贸n:</label><input type="text" id="direccion"></div>
+            <div class="form-group"><label>Dirección:</label><input type="text" id="direccion"></div>
             <div class="form-group"><label>Equipo Instalado:</label><input type="text" id="equipo"></div>
             <div class="form-group"><label>Tipo de Banco:</label><input type="text" id="tipoBanco"></div>
             <div class="form-group"><label>KVA Instalado:</label><input type="number" step="0.1" id="kva"></div>
@@ -93,210 +97,29 @@
 
     <div id="screen-exportar" class="screen">
         <h2>Exportar Datos</h2>
-        <p>Actualmente hay <b id="contadorRegistros">0</b> registros guardados en este dispositivo.</p>
+        <p>Registros guardados: <b id="contadorRegistros">0</b></p>
         
         <button class="btn-export" onclick="exportarCSV()">Exportar como CSV (Excel)</button>
-        <button class="btn-export" onclick="exportarJSON()" style="background-color: #17a2b8; color: white;">Exportar como JSON (T茅cnico)</button>
+        <button class="btn-export" onclick="exportarJSON()" style="background-color: #17a2b8; color: white;">Exportar como JSON (Técnico)</button>
         
-        <div id="listadoRegistros">
-            </div>
+        <div id="listadoRegistros"></div>
     </div>
 
 </div>
 
 <nav class="bottom-nav">
-    <button class="nav-item active" onclick="switchScreen('captura')">Capturar</button>
-    <button class="nav-item" onclick="switchScreen('exportar')">Exportar</button>
+    <button class="nav-item active" id="nav-captura" onclick="switchScreen('captura')">Capturar</button>
+    <button class="nav-item" id="nav-exportar" onclick="switchScreen('exportar')">Exportar</button>
 </nav>
 
 <script>
-    // --- 1. CONFIGURACI脫N DE LA BASE DE DATOS LOCAL (DEXIE.JS) ---
-    // Dexie es un "wrapper" amable para IndexedDB, que act煤a como SQLite en el navegador.
+    // --- 1. CONFIGURACIÓN DE LA BASE DE DATOS LOCAL ---
     const db = new Dexie("InventarioElectricoDB");
-    
-    // Definimos el esquema. El '++id' es el autonum茅rico que pediste.
     db.version(1).stores({
         registros: '++id, circuito, coordenadas, fecha'
     });
 
-    // --- 2. GESTI脫N DE PANTALLAS (NAVEGACI脫N) ---
+    // --- 2. GESTIÓN DE PANTALLAS ---
     function switchScreen(screenName) {
-        // Ocultar todas las pantallas
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        
-        // Mostrar la seleccionada
-        document.getElementById(`screen-${screenName}`).classList.add('active');
-        
-        // Actualizar barra de navegaci贸n
-        const navIndex = screenName === 'captura' ? 0 : 1;
-        document.querySelectorAll('.nav-item')[navIndex].classList.add('active');
-
-        // Si vamos a exportar, refrescar la lista
-        if(screenName === 'exportar') {
-            actualizarListaExportar();
-        }
-    }
-
-    // --- 3. GESTI脫N DEL GPS ---
-    function capturarGPS() {
-        const inputCoords = document.getElementById('coordenadas');
-        inputCoords.value = "Capturando...";
-
-        if (!navigator.geolocation) {
-            alert("Tu navegador no soporta geolocalizaci贸n.");
-            inputCoords.value = "";
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lng = position.coords.longitude.toFixed(6);
-                inputCoords.value = `${lat}, ${lng}`;
-            },
-            (error) => {
-                alert("Error obteniendo ubicaci贸n. Aseg煤rate de dar permisos de GPS.");
-                inputCoords.value = "";
-                console.error(error);
-            },
-            { enableHighAccuracy: true, timeout: 10000 } // Alta precisi贸n, 10seg timeout
-        );
-    }
-
-    // --- 4. GUARDAR DATOS EN LA BASE DE DATOS LOCAL ---
-    document.getElementById('frmInventario').addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        // Recopilar datos del formulario
-        const nuevoRegistro = {
-            coordenadas: document.getElementById('coordenadas').value,
-            circuito: document.getElementById('circuito').value,
-            seccion: document.getElementById('seccion').value,
-            tipoConexion: document.getElementById('tipoConexion').value,
-            direccion: document.getElementById('direccion').value,
-            equipo: document.getElementById('equipo').value,
-            tipoBanco: document.getElementById('tipoBanco').value,
-            kva: parseFloat(document.getElementById('kva').value) || 0,
-            i1: parseFloat(document.getElementById('i1').value) || 0,
-            i2: parseFloat(document.getElementById('i2').value) || 0,
-            i3: parseFloat(document.getElementById('i3').value) || 0,
-            ineutro: parseFloat(document.getElementById('ineutro').value) || 0,
-            fecha: new Date().toISOString() // A帽adimos fecha autom谩ticamente
-        };
-
-        try {
-            // Guardar en Dexie (Base de datos local)
-            const idGenerado = await db.registros.add(nuevoRegistro);
-            alert(`Registro guardado exitosamente localmente. ID asignado: ${idGenerado}`);
-            
-            // Limpiar formulario y Coordenadas
-            document.getElementById('frmInventario').reset();
-            document.getElementById('coordenadas').value = ""; // El reset a veces no limpia campos readonly bien
-
-        } catch (error) {
-            alert("Error cr铆tico al guardar en la base de datos local.");
-            console.error(error);
-        }
-    });
-
-    // --- 5. VISUALIZACI脫N Y EXPORTACI脫N DE DATOS ---
-    async function actualizarListaExportar() {
-        const contenedorLista = document.getElementById('listadoRegistros');
-        const contador = document.getElementById('contadorRegistros');
-        contenedorLista.innerHTML = "Cargando...";
-
-        // Obtener todos los registros ordenados por ID descendente
-        const todosLosRegistros = await db.registros.reverse().toArray();
-        contador.innerText = todosLosRegistros.length;
-
-        if (todosLosRegistros.length === 0) {
-            contenedorLista.innerHTML = "<p>No hay datos guardados a煤n.</p>";
-            return;
-        }
-
-        contenedorLista.innerHTML = ""; // Limpiar
-        
-        // Mostrar solo los 煤ltimos 5 para no saturar la pantalla del m贸vil
-        todosLosRegistros.slice(0, 5).forEach(reg => {
-            const card = document.createElement('div');
-            card.className = 'registro-card';
-            card.innerHTML = `
-                <div class="registro-header">ID: ${reg.id} | Fecha: ${reg.fecha.split('T')[0]}</div>
-                <div class="registro-main">Circuito: ${reg.circuito} - Equipo: ${reg.equipo}</div>
-                <div class="registro-header">Coord: ${reg.coordenadas}</div>
-            `;
-            contenedorLista.appendChild(card);
-        });
-        
-        if(todosLosRegistros.length > 5) {
-            const aviso = document.createElement('p');
-            aviso.innerText = "... y m谩s registros anteriores.";
-            aviso.style.fontSize = "12px"; aviso.style.textAlign="center";
-            contenedorLista.appendChild(aviso);
-        }
-    }
-
-    // Funci贸n auxiliar para descargar archivos
-    function descargarArchivo(contenido, nombreArchivo, tipoMime) {
-        const blob = new Blob([contenido], { type: tipoMime });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nombreArchivo;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // EXPORTAR A CSV (Se abre directamente en Excel)
-    async function exportarCSV() {
-        const datos = await db.registros.toArray();
-        if(datos.length === 0) { alert("No hay datos para exportar."); return; }
-
-        // Definir encabezados
-        const headers = ["ID", "Fecha_ISO", "Coordenadas", "Circuito", "Seccion", "Conexion", "Direccion", "Equipo", "TipoBanco", "KVA", "I1", "I2", "I3", "INeutro"];
-        
-        // Crear l铆neas de CSV
-        let csvContent = headers.join(";") + "\n"; // Usamos punto y coma para Excel en espa帽ol
-
-        datos.forEach(reg => {
-            const row = [
-                reg.id,
-                reg.fecha,
-                `"${reg.coordenadas}"`, // Entre comillas por si tiene comas
-                `"${reg.circuito}"`,
-                `"${reg.seccion}"`,
-                reg.tipoConexion,
-                `"${reg.direccion}"`,
-                `"${reg.equipo}"`,
-                `"${reg.tipoBanco}"`,
-                reg.kva,
-                reg.i1,
-                reg.i2,
-                reg.i3,
-                reg.ineutro
-            ];
-            csvContent += row.join(";") + "\n";
-        });
-
-        // Nombre del archivo con fecha actual
-        const fechaFilenama = new Date().toISOString().split('T')[0];
-        descargarArchivo(csvContent, `inventario_${fechaFilenama}.csv`, 'text/csv;charset=utf-8;');
-    }
-
-    // EXPORTAR A JSON (Formato est谩ndar para programadores)
-    async function exportarJSON() {
-        const datos = await db.registros.toArray();
-        if(datos.length === 0) { alert("No hay datos para exportar."); return; }
-        
-        const jsonContent = JSON.stringify(datos, null, 2);
-        const fechaFilenama = new Date().toISOString().split('T')[0];
-        descargarArchivo(jsonContent, `inventario_${fechaFilenama}.json`, 'application/json');
-    }
-
-</script>
-
-</body>
-</html>
+        document.querySelectorAll('.nav-item
