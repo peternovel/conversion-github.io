@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Captura de Inventario de Campo</title>
+    <title>Captura de Levantamiento de Campo</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
     <style>
         :root {
@@ -59,6 +59,11 @@
                 </div>
             </div>
 
+            <div class="form-group">
+                <label>Direccion o referencia:</label>
+                <input type="text" id="direccion">
+            </div>
+
             <div class="form-group"><label>Circuito:</label><input type="text" id="circuito" required></div>
             <div class="form-group"><label>Seccion:</label><input type="text" id="seccion"></div>
 
@@ -70,7 +75,23 @@
                 </select>
             </div>
 
-            <div class="form-group"><label>Equipo Instalado:</label><input type="text" id="equipo"></div>
+            <div class="form-group">
+                <label>Equipo Instalado:</label>
+                <select id="equipo">
+                    <option value="Sin equipo">Sin equipo</option>
+                    <option value="Partida principal">Partida principal</option>
+                    <option value="Seccionador">Seccionador</option>
+                    <option value="Transformador">Transformador</option>
+                    <option value="Medicion MT">Medicion MT</option>
+                    <option value="Banco de condensadores">Banco de condensadores</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Tipo de banco ejm: 3x25kva 2x50kva:</label>
+                <input type="text" id="tipoBanco">
+            </div>
+
             <div class="form-group"><label>KVA Instalado:</label><input type="number" step="0.1" id="kva"></div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -124,111 +145,3 @@
         const inputCoords = document.getElementById('coordenadas');
         const btnGps = document.querySelector('.geo-btn');
         inputCoords.value = "Obteniendo...";
-        btnGps.disabled = true;
-
-        if (!navigator.geolocation) {
-            alert("GPS no soportado.");
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lng = position.coords.longitude.toFixed(6);
-                inputCoords.value = `${lat}, ${lng}`;
-                btnGps.disabled = false;
-            },
-            (error) => {
-                alert("Error al obtener GPS. Asegúrate de activarlo.");
-                inputCoords.value = "";
-                btnGps.disabled = false;
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    }
-
-    document.getElementById('frmInventario').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const coords = document.getElementById('coordenadas').value;
-        if(!coords || coords === "Obteniendo...") return alert("Capture el GPS.");
-
-        const reg = {
-            coordenadas: coords,
-            circuito: document.getElementById('circuito').value,
-            seccion: document.getElementById('seccion').value,
-            tipoConexion: document.getElementById('tipoConexion').value,
-            equipo: document.getElementById('equipo').value,
-            kva: parseFloat(document.getElementById('kva').value) || 0,
-            i1: parseFloat(document.getElementById('i1').value) || 0,
-            i2: parseFloat(document.getElementById('i2').value) || 0,
-            i3: parseFloat(document.getElementById('i3').value) || 0,
-            ineutro: parseFloat(document.getElementById('ineutro').value) || 0,
-            fecha: new Date().toISOString()
-        };
-
-        await db.registros.add(reg);
-        alert("¡Registro guardado con éxito!");
-        this.reset();
-        document.getElementById('coordenadas').value = "";
-    });
-
-    async function actualizarListaExportar() {
-        const contenedor = document.getElementById('listadoRegistros');
-        const datos = await db.registros.reverse().toArray();
-        document.getElementById('contadorRegistros').innerText = datos.length;
-
-        contenedor.innerHTML = datos.length ? "" : "<p>No hay registros.</p>";
-        datos.slice(0, 10).forEach(reg => {
-            const div = document.createElement('div');
-            div.className = 'registro-card';
-            div.innerHTML = `
-                <div class="registro-header"><span>ID: ${reg.id}</span> <span>${reg.fecha.split('T')[0]}</span></div>
-                <div class="registro-main">${reg.circuito} | ${reg.equipo || 'Sin equipo'}</div>
-                <div style="font-size:12px; color:#555">📌 ${reg.coordenadas}</div>
-            `;
-            contenedor.appendChild(div);
-        });
-    }
-
-    function descargar(contenido, nombre, tipo) {
-        const blob = new Blob([contenido], { type: tipo });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = nombre;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    async function exportarCSV() {
-        const datos = await db.registros.toArray();
-        if(!datos.length) return alert("No hay datos.");
-        const headers = ["ID", "Fecha", "Latitud", "Longitud", "Circuito", "Seccion", "Conexion", "Equipo", "KVA", "I1", "I2", "I3", "INeutro"];
-        let csv = headers.join(";") + "\n";
-        datos.forEach(r => {
-            const c = r.coordenadas.split(',');
-            csv += [r.id, r.fecha, c[0].trim(), c[1].trim(), `"${r.circuito}"`, `"${r.seccion}"`, r.tipoConexion, `"${r.equipo}"`, r.kva, r.i1, r.i2, r.i3, r.ineutro].join(";") + "\n";
-        });
-        descargar(csv, "inventario_electrico.csv", "text/csv;charset=utf-8;");
-    }
-
-    async function exportarGeoJSON() {
-        const datos = await db.registros.toArray();
-        if(!datos.length) return alert("No hay datos.");
-
-        const geojson = {
-            type: "FeatureCollection",
-            features: datos.map(r => {
-                const c = r.coordenadas.split(',').map(n => parseFloat(n.trim()));
-                return {
-                    type: "Feature",
-                    geometry: { type: "Point", coordinates: [c[1], c[0]] }, // GeoJSON usa [Longitud, Latitud]
-                    properties: { ...r }
-                };
-            })
-        };
-        descargar(JSON.stringify(geojson, null, 2), "inventario_campo.geojson", "application/json");
-    }
-</script>
-
-</body>
-</html>
