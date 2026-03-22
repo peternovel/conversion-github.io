@@ -1,257 +1,259 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Captura de Inventario de Campo</title>
-    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-    <style>
-        :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --bg-color: #f8f9fa;
-        }
-        body { font-family: sans-serif; margin: 0; padding: 10px; background-color: var(--bg-color); padding-bottom: 70px; }
-        .container { max-width: 600px; margin: auto; }
-        
-        /* Navegacion */
-        .screen { display: none; }
-        .screen.active { display: block; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversor Kg ↔ Metros | Exportador</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    body {
+      margin: 0;
+      background: #f3f6fb;
+      color: #132039;
+      padding-bottom: 50px;
+    }
+    .wrap {
+      max-width: 650px;
+      margin: 48px auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 8px 20px rgba(19, 32, 57, 0.12);
+    }
+    h1 { margin-top: 0; font-size: 1.4rem; color: #003399; }
+    .grid-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .field { display: grid; gap: 6px; margin-bottom: 14px; }
+    label { font-weight: 600; font-size: 0.9rem; }
+    select, input {
+      border: 1px solid #cad3e2;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    /* Botones */
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.3s;
+      min-width: 140px;
+    }
+    .btn-add { background: #003399; color: white; }
+    .btn-csv { background: #28a745; color: white; }
+    .btn-json { background: #17a2b8; color: white; }
+    button:hover { opacity: 0.8; }
 
-        /* Formulario */
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        input[readonly] { background-color: #e9ecef; color: #495057; }
-        
-        /* Contenedor de coordenadas */
-        .geo-input-group { display: flex; gap: 5px; }
-        .geo-btn { width: 30%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    /* Tabla */
+    .table-container { margin-top: 30px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
+    th { background: #f8f9fa; }
 
-        /* Botones generales */
-        .btn-main { width: 100%; padding: 15px; background-color: var(--primary-color); color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; }
-        .btn-export { width: 100%; padding: 12px; background-color: #ffc107; color: #212529; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 10px; }
-
-        /* Barra de navegacion inferior */
-        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: white; border-top: 1px solid #ddd; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 -2px 5px rgba(0,0,0,0.05); }
-        .nav-item { background: none; border: none; font-size: 16px; color: var(--secondary-color); cursor: pointer; padding: 10px; }
-        .nav-item.active { color: var(--primary-color); font-weight: bold; }
-
-        /* Estilo de la lista */
-        #listadoRegistros { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px; }
-        .registro-card { background: white; padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee;}
-        .registro-header { font-size: 14px; color: #888; margin-bottom: 4px;}
-        .registro-main { font-weight: bold; color: #333;}
-    </style>
+    .note { margin-top: 12px; font-size: .9rem; color: #5c6d8b; font-style: italic; }
+    .footer { text-align: center; margin-top: 20px; font-size: 0.8rem; opacity: 0.7; }
+  </style>
 </head>
 <body>
 
-<div class="container">
+  <main class="wrap">
+    <h1>Calculador y Exportador de Levantamiento</h1>
     
-    <div id="screen-captura" class="screen active">
-        <h2>Capturar Registro</h2>
-        <form id="frmInventario">
-            <div class="form-group">
-                <label>ID Registro (Auto):</label>
-                <input type="text" id="itemId" readonly placeholder="Nuevo">
-            </div>
-
-            <div class="form-group">
-                <label>Coordenadas (Lat, Long):</label>
-                <div class="geo-input-group">
-                    <input type="text" id="coordenadas" readonly placeholder="Click en GPS para capturar">
-                    <button type="button" class="geo-btn" onclick="capturarGPS()">📍 GPS</button>
-                </div>
-            </div>
-
-            <div class="form-group"><label>Circuito:</label><input type="text" id="circuito" required></div>
-            <div class="form-group"><label>Seccion:</label><input type="text" id="seccion"></div>
-
-            <div class="form-group">
-                <label>Tipo de Conexion:</label>
-                <select id="tipoConexion">
-                    <option value="Paso">Paso</option>
-                    <option value="Amarre">Amarre</option>
-                </select>
-            </div>
-
-            <div class="form-group"><label>Direccion:</label><input type="text" id="direccion"></div>
-            <div class="form-group"><label>Equipo Instalado:</label><input type="text" id="equipo"></div>
-            <div class="form-group"><label>Tipo de Banco:</label><input type="text" id="tipoBanco"></div>
-            <div class="form-group"><label>KVA Instalado:</label><input type="number" step="0.1" id="kva"></div>
-            
-            <div class="form-group"><label>I1 (A):</label><input type="number" step="0.1" id="i1"></div>
-            <div class="form-group"><label>I2 (A):</label><input type="number" step="0.1" id="i2"></div>
-            <div class="form-group"><label>I3 (A):</label><input type="number" step="0.1" id="i3"></div>
-            <div class="form-group"><label>I Neutro (A):</label><input type="number" step="0.1" id="ineutro"></div>
-
-            <button type="submit" class="btn-main">Guardar Registro Localmente</button>
-        </form>
+    <div class="grid-fields">
+      <div class="field">
+        <label>Material</label>
+        <select id="material">
+          <option value="aluminio">Aluminio</option>
+          <option value="cobre">Cobre</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Calibre</label>
+        <select id="calibre">
+          <option value="4">#4</option>
+          <option value="2">#2</option>
+          <option value="1/0">1/0</option>
+          <option value="2/0">2/0</option>
+          <option value="3/0">3/0</option>
+          <option value="4/0">4/0</option>
+        </select>
+      </div>
     </div>
 
-    <div id="screen-exportar" class="screen">
-        <h2>Exportar Datos</h2>
-        <p>Registros guardados en este dispositivo: <b id="contadorRegistros">0</b></p>
-        
-        <button class="btn-export" onclick="exportarCSV()">Exportar como CSV (Excel)</button>
-        <button class="btn-export" onclick="exportarJSON()" style="background-color: #17a2b8; color: white;">Exportar como JSON</button>
-        
-        <div id="listadoRegistros"></div>
+    <div class="grid-fields">
+      <div class="field">
+        <label>Metros</label>
+        <input type="number" id="metros" step="0.01" placeholder="0.00" />
+      </div>
+      <div class="field">
+        <label>Kilos (kg)</label>
+        <input type="number" id="kilos" step="0.01" placeholder="0.00" />
+      </div>
     </div>
 
-</div>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 10px 0;">
+    <p style="font-size: 0.8rem; font-weight: bold; margin-bottom: 10px;">UBICACIÓN (Para GeoJSON)</p>
+    
+    <div class="grid-fields">
+      <div class="field">
+        <label>Latitud</label>
+        <input type="number" id="lat" step="0.000001" placeholder="0.000000" />
+      </div>
+      <div class="field">
+        <label>Longitud</label>
+        <input type="number" id="lng" step="0.000001" placeholder="0.000000" />
+      </div>
+    </div>
 
-<nav class="bottom-nav">
-    <button class="nav-item active" onclick="switchScreen('captura')">Capturar</button>
-    <button class="nav-item" onclick="switchScreen('exportar')">Exportar</button>
-</nav>
+    <div class="note" id="factorInfo"></div>
 
-<script>
-    // 1. CONFIGURACION BASE DE DATOS
-    const db = new Dexie("InventarioElectricoDB");
-    db.version(1).stores({
-        registros: '++id, circuito, coordenadas, fecha'
+    <div class="btn-group">
+      <button class="btn-add" onclick="agregarRegistro()">+ Guardar Punto</button>
+      <button class="btn-csv" onclick="exportarCSV()">Exportar CSV</button>
+      <button class="btn-json" onclick="exportarGeoJSON()">Exportar GeoJSON</button>
+    </div>
+
+    <div class="table-container">
+      <table id="tablaRegistros">
+        <thead>
+          <tr>
+            <th>Mat.</th>
+            <th>Cal.</th>
+            <th>Mts.</th>
+            <th>Kg.</th>
+            <th>Coord.</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="footer">
+      <p>Por Pedro Novelino</p>
+    </div>
+  </main>
+
+  <script>
+    const kgPorMetro = {
+      aluminio: { '4': 0.057, '2': 0.108, '1/0': 0.172, '2/0': 0.217, '3/0': 0.230, '4/0': 0.345 },
+      cobre: { '4': 0.189, '2': 0.301, '1/0': 0.479, '2/0': 0.604, '3/0': 0.762, '4/0': 0.961 }
+    };
+
+    let registros = [];
+
+    const materialEl = document.getElementById('material');
+    const calibreEl = document.getElementById('calibre');
+    const metrosEl = document.getElementById('metros');
+    const kilosEl = document.getElementById('kilos');
+    const latEl = document.getElementById('lat');
+    const lngEl = document.getElementById('lng');
+    const factorInfoEl = document.getElementById('factorInfo');
+
+    function getFactor() { return kgPorMetro[materialEl.value][calibreEl.value]; }
+
+    function updateFactorInfo() {
+      const factor = getFactor();
+      factorInfoEl.textContent = `Factor: ${factor.toFixed(3)} kg/m`;
+    }
+
+    metrosEl.addEventListener('input', () => {
+      const v = parseFloat(metrosEl.value);
+      kilosEl.value = isNaN(v) ? '' : (v * getFactor()).toFixed(3);
     });
 
-    // 2. GESTION DE PANTALLAS
-    function switchScreen(screenName) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        
-        document.getElementById(`screen-${screenName}`).classList.add('active');
-        
-        const navItems = document.querySelectorAll('.nav-item');
-        if(screenName === 'captura') navItems[0].classList.add('active');
-        else navItems[1].classList.add('active');
-
-        if(screenName === 'exportar') {
-            actualizarListaExportar();
-        }
-    }
-
-    // 3. GESTION DEL GPS (CORREGIDA)
-    function capturarGPS() {
-        const inputCoords = document.getElementById('coordenadas');
-        const btnGps = document.querySelector('.geo-btn');
-        
-        inputCoords.value = "Capturando...";
-        btnGps.disabled = true;
-
-        if (!navigator.geolocation) {
-            alert("Su navegador no soporta GPS.");
-            inputCoords.value = "";
-            btnGps.disabled = false;
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lng = position.coords.longitude.toFixed(6);
-                // Escribir directamente en el textbox
-                inputCoords.value = lat + ", " + lng;
-                btnGps.disabled = false;
-            },
-            (error) => {
-                let mensaje = "Error al obtener ubicacion.";
-                if(error.code === 1) mensaje = "Por favor permita el acceso al GPS.";
-                alert(mensaje);
-                inputCoords.value = "";
-                btnGps.disabled = false;
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-    }
-
-    // 4. GUARDAR DATOS
-    document.getElementById('frmInventario').addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        const coordenadasVal = document.getElementById('coordenadas').value;
-        if(!coordenadasVal || coordenadasVal === "Capturando...") {
-            alert("Debe capturar las coordenadas GPS antes de guardar.");
-            return;
-        }
-
-        const nuevoRegistro = {
-            coordenadas: coordenadasVal,
-            circuito: document.getElementById('circuito').value,
-            seccion: document.getElementById('seccion').value,
-            tipoConexion: document.getElementById('tipoConexion').value,
-            direccion: document.getElementById('direccion').value,
-            equipo: document.getElementById('equipo').value,
-            tipoBanco: document.getElementById('tipoBanco').value,
-            kva: parseFloat(document.getElementById('kva').value) || 0,
-            i1: parseFloat(document.getElementById('i1').value) || 0,
-            i2: parseFloat(document.getElementById('i2').value) || 0,
-            i3: parseFloat(document.getElementById('i3').value) || 0,
-            ineutro: parseFloat(document.getElementById('ineutro').value) || 0,
-            fecha: new Date().toISOString()
-        };
-
-        try {
-            const idGen = await db.registros.add(nuevoRegistro);
-            alert("Registro guardado con ID: " + idGen);
-            document.getElementById('frmInventario').reset();
-            document.getElementById('coordenadas').value = "";
-        } catch (error) {
-            alert("Error al guardar en la base de datos.");
-            console.error(error);
-        }
+    kilosEl.addEventListener('input', () => {
+      const v = parseFloat(kilosEl.value);
+      metrosEl.value = isNaN(v) ? '' : (v / getFactor()).toFixed(3);
     });
 
-    // 5. EXPORTACION Y VISTA
-    async function actualizarListaExportar() {
-        const contenedor = document.getElementById('listadoRegistros');
-        const contador = document.getElementById('contadorRegistros');
-        const datos = await db.registros.reverse().toArray();
-        contador.innerText = datos.length;
+    function agregarRegistro() {
+      if (!metrosEl.value || !latEl.value || !lngEl.value) {
+        alert("Por favor completa Metros, Latitud y Longitud.");
+        return;
+      }
 
-        if (datos.length === 0) {
-            contenedor.innerHTML = "<p>No hay datos guardados.</p>";
-            return;
-        }
+      const reg = {
+        material: materialEl.value,
+        calibre: calibreEl.value,
+        metros: metrosEl.value,
+        kilos: kilosEl.value,
+        lat: parseFloat(latEl.value),
+        lng: parseFloat(lngEl.value)
+      };
 
-        contenedor.innerHTML = "";
-        datos.slice(0, 5).forEach(reg => {
-            const div = document.createElement('div');
-            div.className = 'registro-card';
-            div.innerHTML = `
-                <div class="registro-header">ID: ${reg.id} | Fecha: ${reg.fecha.split('T')[0]}</div>
-                <div class="registro-main">${reg.circuito} - ${reg.equipo}</div>
-                <div class="registro-header">Coord: ${reg.coordenadas}</div>
-            `;
-            contenedor.appendChild(div);
-        });
+      registros.push(reg);
+      actualizarTabla();
     }
 
-    function descargar(contenido, nombre, tipo) {
-        const blob = new Blob([contenido], { type: tipo });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = nombre;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+    function actualizarTabla() {
+      const tbody = document.querySelector('#tablaRegistros tbody');
+      tbody.innerHTML = '';
+      registros.forEach(r => {
+        const row = `<tr>
+          <td>${r.material}</td>
+          <td>${r.calibre}</td>
+          <td>${r.metros}</td>
+          <td>${r.kilos}</td>
+          <td>${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
     }
 
-    async function exportarCSV() {
-        const datos = await db.registros.toArray();
-        if(!datos.length) return alert("No hay datos.");
-        const headers = ["ID", "Fecha", "Coordenadas", "Circuito", "Seccion", "Conexion", "Direccion", "Equipo", "TipoBanco", "KVA", "I1", "I2", "I3", "INeutro"];
-        let csv = headers.join(";") + "\n";
-        datos.forEach(r => {
-            csv += [r.id, r.fecha, `"${r.coordenadas}"`, `"${r.circuito}"`, `"${r.seccion}"`, r.tipoConexion, `"${r.direccion}"`, `"${r.equipo}"`, `"${r.tipoBanco}"`, r.kva, r.i1, r.i2, r.i3, r.ineutro].join(";") + "\n";
-        });
-        descargar(csv, "inventario.csv", "text/csv;charset=utf-8;");
+    // --- FUNCIONES DE EXPORTACIÓN ---
+
+    function descargarArchivo(contenido, nombreArchivo, tipoMime) {
+      const blob = new Blob([contenido], { type: tipoMime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nombreArchivo;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
-    async function exportarJSON() {
-        const datos = await db.registros.toArray();
-        if(!datos.length) return alert("No hay datos.");
-        descargar(JSON.stringify(datos, null, 2), "inventario.json", "application/json");
+    function exportarCSV() {
+      if (registros.length === 0) return alert("No hay datos para exportar");
+      let csv = "Material,Calibre,Metros,Kilos,Latitud,Longitud\n";
+      registros.forEach(r => {
+        csv += `${r.material},${r.calibre},${r.metros},${r.kilos},${r.lat},${r.lng}\n`;
+      });
+      descargarArchivo(csv, "levantamiento.csv", "text/csv");
     }
-</script>
 
+    function exportarGeoJSON() {
+      if (registros.length === 0) return alert("No hay datos para exportar");
+      const geojson = {
+        type: "FeatureCollection",
+        features: registros.map(r => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [r.lng, r.lat] },
+          properties: {
+            material: r.material,
+            calibre: r.calibre,
+            metros: r.metros,
+            kilos: r.kilos
+          }
+        }))
+      };
+      descargarArchivo(JSON.stringify(geojson, null, 2), "levantamiento.geojson", "application/json");
+    }
+
+    [materialEl, calibreEl].forEach(el => el.addEventListener('change', updateFactorInfo));
+    updateFactorInfo();
+  </script>
 </body>
 </html>
