@@ -145,3 +145,113 @@
         const inputCoords = document.getElementById('coordenadas');
         const btnGps = document.querySelector('.geo-btn');
         inputCoords.value = "Obteniendo...";
+        btnGps.disabled = true;
+
+        if (!navigator.geolocation) {
+            alert("GPS no soportado.");
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude.toFixed(6);
+                const lng = position.coords.longitude.toFixed(6);
+                inputCoords.value = `${lat}, ${lng}`;
+                btnGps.disabled = false;
+            },
+            (error) => {
+                alert("Error al obtener GPS. Asegúrate de activarlo.");
+                inputCoords.value = "";
+                btnGps.disabled = false;
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    }
+
+    document.getElementById('frmInventario').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const coords = document.getElementById('coordenadas').value;
+        if(!coords || coords === "Obteniendo...") return alert("Capture el GPS.");
+
+        const reg = {
+            coordenadas: coords,
+            direccion: document.getElementById('direccion').value,
+            circuito: document.getElementById('circuito').value,
+            seccion: document.getElementById('seccion').value,
+            tipoConexion: document.getElementById('tipoConexion').value,
+            equipo: document.getElementById('equipo').value,
+            tipoBanco: document.getElementById('tipoBanco').value,
+            kva: parseFloat(document.getElementById('kva').value) || 0,
+            i1: parseFloat(document.getElementById('i1').value) || 0,
+            i2: parseFloat(document.getElementById('i2').value) || 0,
+            i3: parseFloat(document.getElementById('i3').value) || 0,
+            ineutro: parseFloat(document.getElementById('ineutro').value) || 0,
+            fecha: new Date().toISOString()
+        };
+
+        await db.registros.add(reg);
+        alert("¡Registro guardado con éxito!");
+        this.reset();
+        document.getElementById('coordenadas').value = "";
+    });
+
+    async function actualizarListaExportar() {
+        const contenedor = document.getElementById('listadoRegistros');
+        const datos = await db.registros.reverse().toArray();
+        document.getElementById('contadorRegistros').innerText = datos.length;
+
+        contenedor.innerHTML = datos.length ? "" : "<p>No hay registros.</p>";
+        datos.slice(0, 10).forEach(reg => {
+            const div = document.createElement('div');
+            div.className = 'registro-card';
+            div.innerHTML = `
+                <div class="registro-header"><span>ID: ${reg.id}</span> <span>${reg.fecha.split('T')[0]}</span></div>
+                <div class="registro-main">${reg.circuito} | ${reg.equipo}</div>
+                <div style="font-size:12px; color:#555">📌 ${reg.coordenadas}</div>
+            `;
+            contenedor.appendChild(div);
+        });
+    }
+
+    function descargar(contenido, nombre, tipo) {
+        const blob = new Blob([contenido], { type: tipo });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = nombre;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function exportarCSV() {
+        const datos = await db.registros.toArray();
+        if(!datos.length) return alert("No hay datos.");
+        const headers = ["ID", "Fecha", "Latitud", "Longitud", "Direccion", "Circuito", "Seccion", "Conexion", "Equipo", "TipoBanco", "KVA", "I1", "I2", "I3", "INeutro"];
+        let csv = headers.join(";") + "\n";
+        datos.forEach(r => {
+            const c = r.coordenadas.split(',');
+            csv += [r.id, r.fecha, c[0].trim(), c[1].trim(), `"${r.direccion}"`, `"${r.circuito}"`, `"${r.seccion}"`, r.tipoConexion, `"${r.equipo}"`, `"${r.tipoBanco}"`, r.kva, r.i1, r.i2, r.i3, r.ineutro].join(";") + "\n";
+        });
+        descargar(csv, "levantamiento_electrico.csv", "text/csv;charset=utf-8;");
+    }
+
+    async function exportarGeoJSON() {
+        const datos = await db.registros.toArray();
+        if(!datos.length) return alert("No hay datos.");
+
+        const geojson = {
+            type: "FeatureCollection",
+            features: datos.map(r => {
+                const c = r.coordenadas.split(',').map(n => parseFloat(n.trim()));
+                return {
+                    type: "Feature",
+                    geometry: { type: "Point", coordinates: [c[1], c[0]] }, 
+                    properties: { ...r }
+                };
+            })
+        };
+        descargar(JSON.stringify(geojson, null, 2), "levantamiento_campo.geojson", "application/json");
+    }
+</script>
+
+</body>
+</html>
