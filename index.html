@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador GeoJSON con Ubicación - Mapbox</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visualizador Móvil GeoJSON - Mapbox</title>
     
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js"></script>
@@ -11,80 +11,88 @@
 
     <style>
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; display: flex; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        
-        #sidebar {
-            width: 320px;
+        body { 
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            flex-direction: column; /* Por defecto para móvil */
+            font-family: 'Segoe UI', sans-serif; 
             height: 100vh;
+            overflow: hidden;
+        }
+        
+        #map { 
+            flex: 1; /* El mapa toma el espacio disponible */
+            width: 100%; 
+        }
+
+        #sidebar {
+            width: 100%;
+            max-height: 40vh; /* Altura máxima en móviles */
             background-color: #003399;
             color: white;
-            padding: 25px;
+            padding: 15px;
             z-index: 1;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
             overflow-y: auto;
         }
 
-        #sidebar h2 { margin-top: 0; font-size: 1.5rem; }
-        #sidebar p { font-size: 0.9rem; opacity: 0.9; line-height: 1.4; }
-        #map { flex-grow: 1; height: 100vh; }
+        /* Diseño para Pantallas Grandes (Escritorio) */
+        @media (min-width: 768px) {
+            body { flex-direction: row; }
+            #sidebar { width: 320px; height: 100vh; max-height: 100vh; }
+            #map { height: 100vh; }
+        }
+
+        #sidebar h2 { margin-top: 0; font-size: 1.2rem; }
+        #sidebar p { font-size: 0.85rem; opacity: 0.9; }
 
         .upload-btn {
             display: block;
             background-color: #00d4ff;
             color: #002266;
             border: none;
-            padding: 12px 10px;
+            padding: 15px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
             width: 100%;
-            margin: 20px 0;
+            margin: 10px 0;
             text-align: center;
-            transition: background 0.3s;
+            font-size: 1rem;
         }
-
-        .upload-btn:hover { background-color: #ffffff; }
-        input[type="file"] { display: none; }
 
         .filter-group {
             margin-top: 10px;
-            padding: 15px;
+            padding: 10px;
             background: rgba(255,255,255,0.1);
             border-radius: 8px;
         }
         .filter-item {
             display: flex;
             align-items: center;
-            margin-bottom: 10px;
-            font-size: 0.85rem;
+            margin-bottom: 12px; /* Más espacio para dedos */
+            font-size: 0.9rem;
         }
-        .filter-item input { margin-right: 10px; width: 18px; height: 18px; cursor: pointer; }
-        .filter-item label { cursor: pointer; }
-
-        /* Ajuste para móviles */
-        @media (max-width: 600px) {
-            body { flex-direction: column; }
-            #sidebar { width: 100%; height: auto; order: 2; }
-            #map { height: 60vh; order: 1; }
-        }
+        .filter-item input { margin-right: 15px; width: 22px; height: 22px; }
     </style>
 </head>
 <body>
 
+<div id="map"></div>
+
 <div id="sidebar">
-    <h2>Visualizar el levantamiento</h2>
-    <p>Carga el archivo levantado exportado json.</p>
+    <h2>Levantamiento</h2>
+    <p>Carga el archivo .json para visualizar.</p>
     
     <label class="upload-btn" for="geojson-input">
-        Cargar archivo json
+        📁 Cargar archivo
     </label>
     <input type="file" id="geojson-input" accept=".geojson,.json">
 
     <div class="filter-group">
-        <strong>Filtrar por Equipo:</strong>
-        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 10px 0;">
+        <strong>Equipos:</strong>
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;">
         
         <div class="filter-item">
             <input type="checkbox" class="filter-check" value="Partida principal" id="c1" checked>
@@ -111,44 +119,34 @@
             <label for="c6">Sin equipo</label>
         </div>
     </div>
-    <p style="margin-top: 20px;">Por Pedro Novelino</p>
+    <p style="text-align: center; font-size: 0.7rem;">Pedro Novelino</p>
 </div>
 
-<div id="map"></div>
-
 <script>
-    // Inicializar Base de Datos Dexie
     const db = new Dexie("GeoJSON_Map_DB");
-    db.version(1).stores({
-        features: '++id, equipo' 
-    });
+    db.version(1).stores({ features: '++id, equipo' });
 
-    // Configuración Mapbox
     mapboxgl.accessToken = 'pk.eyJ1IjoicGV0ZXJub3ZlbCIsImEiOiJjaWdyZm9tdHcwMXl2djFrb2xoMmdvOTMyIn0.4cQYxMt9fl5gDtvDmJz_1w';
     
     const map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/light-v10', 
         center: [-68.31, 9.91], 
-        zoom: 12
+        zoom: 12,
+        antialias: true
     });
 
-    // --- CONTROLES ---
+    // Controles optimizados
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-    // Botones de Zoom
-    map.addControl(new mapboxgl.NavigationControl());
-
-    // Botón de ubicación actual (GPS)
     const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: {
-            enableHighAccuracy: true
-        },
-        trackUserLocation: true, // Seguir movimiento
-        showUserHeading: true    // Mostrar dirección (brújula)
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserHeading: true
     });
-    map.addControl(geolocate);
+    map.addControl(geolocate, 'top-right');
 
-    // Carga de archivo y conversión a BD
+    // Manejo de Archivos
     document.getElementById('geojson-input').addEventListener('change', async function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -157,72 +155,52 @@
         reader.onload = async function(event) {
             try {
                 const data = JSON.parse(event.target.result);
-                let features = data.features || [];
-
                 await db.features.clear();
-                const itemsToStore = features.map(f => ({
+                const itemsToStore = (data.features || []).map(f => ({
                     geometry: f.geometry,
                     properties: f.properties,
                     equipo: f.properties.equipo 
                 }));
-                
                 await db.features.bulkAdd(itemsToStore);
                 consultarYGraficar(true); 
-                
             } catch (err) {
                 alert("Error al procesar el archivo.");
-                console.error(err);
             }
         };
         reader.readAsText(file);
     });
 
-    // Escuchar cambios en checkboxes
     document.querySelectorAll('.filter-check').forEach(ck => {
         ck.addEventListener('change', () => consultarYGraficar(false));
     });
 
     async function consultarYGraficar(debeAjustarZoom = false) {
-        const selectedEquipos = Array.from(document.querySelectorAll('.filter-check:checked'))
-                                     .map(c => c.value);
-
-        const records = await db.features
-                                .where('equipo')
-                                .anyOf(selectedEquipos)
-                                .toArray();
-
+        const selectedEquipos = Array.from(document.querySelectorAll('.filter-check:checked')).map(c => c.value);
+        const records = await db.features.where('equipo').anyOf(selectedEquipos).toArray();
         const geojson = {
             type: 'FeatureCollection',
-            features: records.map(r => ({
-                type: 'Feature',
-                geometry: r.geometry,
-                properties: r.properties
-            }))
+            features: records.map(r => ({ type: 'Feature', geometry: r.geometry, properties: r.properties }))
         };
-
         renderGeoJSON(geojson, debeAjustarZoom);
     }
 
     function renderGeoJSON(data, debeAjustarZoom) {
         const sourceId = 'user-data';
-
         if (map.getSource(sourceId)) {
             map.getSource(sourceId).setData(data);
         } else {
             map.addSource(sourceId, { type: 'geojson', data: data });
-
             map.addLayer({
                 id: 'route-points',
                 type: 'circle',
                 source: sourceId,
                 paint: {
-                    'circle-radius': 12,
+                    'circle-radius': 10,
                     'circle-color': '#ff5500',
                     'circle-stroke-width': 2,
                     'circle-stroke-color': '#ffffff'
                 }
             });
-
             map.addLayer({
                 id: 'point-labels',
                 type: 'symbol',
@@ -230,8 +208,7 @@
                 layout: {
                     'text-field': ['get', 'id'],
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 11,
-                    'text-allow-overlap': true
+                    'text-size': 10,
                 },
                 paint: { 'text-color': '#ffffff' }
             });
@@ -240,7 +217,7 @@
         if (debeAjustarZoom && data.features.length > 0) {
             const bounds = new mapboxgl.LngLatBounds();
             data.features.forEach(f => bounds.extend(f.geometry.coordinates));
-            map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+            map.fitBounds(bounds, { padding: 40 });
         }
     }
 </script>
