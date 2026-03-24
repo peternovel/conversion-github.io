@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Visualizador Móvil GeoJSON - Mapbox</title>
+    <title>Visualizador GeoJSON - Centro Promedio</title>
     
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js"></script>
@@ -12,68 +12,28 @@
     <style>
         * { box-sizing: border-box; }
         body { 
-            margin: 0; 
-            padding: 0; 
-            display: flex; 
-            flex-direction: column; /* Por defecto para móvil */
-            font-family: 'Segoe UI', sans-serif; 
-            height: 100vh;
-            overflow: hidden;
+            margin: 0; padding: 0; display: flex; flex-direction: column; 
+            font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden;
         }
-        
-        #map { 
-            flex: 1; /* El mapa toma el espacio disponible */
-            width: 100%; 
-        }
-
+        #map { flex: 1; width: 100%; }
         #sidebar {
-            width: 100%;
-            max-height: 40vh; /* Altura máxima en móviles */
-            background-color: #003399;
-            color: white;
-            padding: 15px;
-            z-index: 1;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.3);
-            overflow-y: auto;
+            width: 100%; max-height: 40vh; background-color: #003399;
+            color: white; padding: 15px; z-index: 1;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.3); overflow-y: auto;
         }
-
-        /* Diseño para Pantallas Grandes (Escritorio) */
         @media (min-width: 768px) {
             body { flex-direction: row; }
             #sidebar { width: 320px; height: 100vh; max-height: 100vh; }
             #map { height: 100vh; }
         }
-
-        #sidebar h2 { margin-top: 0; font-size: 1.2rem; }
-        #sidebar p { font-size: 0.85rem; opacity: 0.9; }
-
         .upload-btn {
-            display: block;
-            background-color: #00d4ff;
-            color: #002266;
-            border: none;
-            padding: 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            width: 100%;
-            margin: 10px 0;
-            text-align: center;
-            font-size: 1rem;
+            display: block; background-color: #00d4ff; color: #002266;
+            padding: 15px; border-radius: 8px; cursor: pointer;
+            font-weight: bold; width: 100%; margin: 10px 0; text-align: center;
         }
-
-        .filter-group {
-            margin-top: 10px;
-            padding: 10px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-        }
-        .filter-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px; /* Más espacio para dedos */
-            font-size: 0.9rem;
-        }
+        input[type="file"] { display: none; }
+        .filter-group { margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+        .filter-item { display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem; }
         .filter-item input { margin-right: 15px; width: 22px; height: 22px; }
     </style>
 </head>
@@ -83,43 +43,24 @@
 
 <div id="sidebar">
     <h2>Levantamiento</h2>
-    <p>Carga el archivo .json para visualizar.</p>
+    <p>Los puntos se centrarán en el promedio de sus coordenadas.</p>
     
-    <label class="upload-btn" for="geojson-input">
-        📁 Cargar archivo
-    </label>
+    <label class="upload-btn" for="geojson-input">📁 Cargar archivo .json</label>
     <input type="file" id="geojson-input" accept=".geojson,.json">
 
     <div class="filter-group">
         <strong>Equipos:</strong>
         <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;">
-        
-        <div class="filter-item">
-            <input type="checkbox" class="filter-check" value="Partida principal" id="c1" checked>
-            <label for="c1">Partida principal</label>
-        </div>
-        <div class="filter-item">
-            <input type="checkbox" class="filter-check" value="Seccionador" id="c2" checked>
-            <label for="c2">Seccionador</label>
-        </div>
-        <div class="filter-item">
-            <input type="checkbox" class="filter-check" value="Transformador" id="c3" checked>
-            <label for="c3">Transformador</label>
-        </div>
-        <div class="filter-item">
-            <input type="checkbox" class="filter-check" value="Medicion MT" id="c4" checked>
-            <label for="c4">Medición MT</label>
-        </div>
-        <div class="filter-item">
-            <input type="checkbox" class="filter-check" value="Banco de condensadores" id="c5" checked>
-            <label for="c5">Banco de condensadores</label>
-        </div>
-        <div class="filter-item">
-            <input type="checkbox" class="filter-check" value="Sin equipo" id="c6" checked>
-            <label for="c6">Sin equipo</label>
+        <div id="filters">
+            <div class="filter-item"><input type="checkbox" class="filter-check" value="Partida principal" id="c1" checked><label for="c1">Partida principal</label></div>
+            <div class="filter-item"><input type="checkbox" class="filter-check" value="Seccionador" id="c2" checked><label for="c2">Seccionador</label></div>
+            <div class="filter-item"><input type="checkbox" class="filter-check" value="Transformador" id="c3" checked><label for="c3">Transformador</label></div>
+            <div class="filter-item"><input type="checkbox" class="filter-check" value="Medicion MT" id="c4" checked><label for="c4">Medición MT</label></div>
+            <div class="filter-item"><input type="checkbox" class="filter-check" value="Banco de condensadores" id="c5" checked><label for="c5">Banco de condensadores</label></div>
+            <div class="filter-item"><input type="checkbox" class="filter-check" value="Sin equipo" id="c6" checked><label for="c6">Sin equipo</label></div>
         </div>
     </div>
-    <p style="text-align: center; font-size: 0.7rem;">Pedro Novelino</p>
+    <p style="text-align: center; font-size: 0.7rem; margin-top: 15px;">Pedro Novelino</p>
 </div>
 
 <script>
@@ -132,13 +73,10 @@
         container: 'map',
         style: 'mapbox://styles/mapbox/light-v10', 
         center: [-68.31, 9.91], 
-        zoom: 12,
-        antialias: true
+        zoom: 12
     });
 
-    // Controles optimizados
     map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-
     const geolocate = new mapboxgl.GeolocateControl({
         positionOptions: { enableHighAccuracy: true },
         trackUserLocation: true,
@@ -146,7 +84,6 @@
     });
     map.addControl(geolocate, 'top-right');
 
-    // Manejo de Archivos
     document.getElementById('geojson-input').addEventListener('change', async function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -159,9 +96,11 @@
                 const itemsToStore = (data.features || []).map(f => ({
                     geometry: f.geometry,
                     properties: f.properties,
-                    equipo: f.properties.equipo 
+                    equipo: f.properties.equipo || "Sin equipo"
                 }));
                 await db.features.bulkAdd(itemsToStore);
+                
+                // Al cargar archivo nuevo, centramos en el promedio
                 consultarYGraficar(true); 
             } catch (err) {
                 alert("Error al procesar el archivo.");
@@ -174,17 +113,47 @@
         ck.addEventListener('change', () => consultarYGraficar(false));
     });
 
-    async function consultarYGraficar(debeAjustarZoom = false) {
+    async function consultarYGraficar(centrarEnPromedio = false) {
         const selectedEquipos = Array.from(document.querySelectorAll('.filter-check:checked')).map(c => c.value);
         const records = await db.features.where('equipo').anyOf(selectedEquipos).toArray();
+        
+        if (records.length === 0) return;
+
         const geojson = {
             type: 'FeatureCollection',
             features: records.map(r => ({ type: 'Feature', geometry: r.geometry, properties: r.properties }))
         };
-        renderGeoJSON(geojson, debeAjustarZoom);
+
+        renderGeoJSON(geojson);
+
+        if (centrarEnPromedio) {
+            let sumLng = 0;
+            let sumLat = 0;
+            let count = 0;
+
+            records.forEach(r => {
+                if (r.geometry && r.geometry.coordinates) {
+                    sumLng += r.geometry.coordinates[0];
+                    sumLat += r.geometry.coordinates[1];
+                    count++;
+                }
+            });
+
+            if (count > 0) {
+                const avgLng = sumLng / count;
+                const avgLat = sumLat / count;
+                
+                // Centrar suavemente en el promedio calculado
+                map.flyTo({
+                    center: [avgLng, avgLat],
+                    zoom: 14,
+                    essential: true
+                });
+            }
+        }
     }
 
-    function renderGeoJSON(data, debeAjustarZoom) {
+    function renderGeoJSON(data) {
         const sourceId = 'user-data';
         if (map.getSource(sourceId)) {
             map.getSource(sourceId).setData(data);
@@ -212,12 +181,6 @@
                 },
                 paint: { 'text-color': '#ffffff' }
             });
-        }
-
-        if (debeAjustarZoom && data.features.length > 0) {
-            const bounds = new mapboxgl.LngLatBounds();
-            data.features.forEach(f => bounds.extend(f.geometry.coordinates));
-            map.fitBounds(bounds, { padding: 40 });
         }
     }
 </script>
