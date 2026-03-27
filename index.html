@@ -2,188 +2,361 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Visualizador GeoJSON - Centro Promedio</title>
-    
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.css" rel="stylesheet">
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.3.1/mapbox-gl.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Inventario Eléctrico Profesional</title>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
-
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            margin: 0; padding: 0; display: flex; flex-direction: column; 
-            font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden;
+        /* ESTILOS BASE MANTENIDOS */
+        :root {
+            --primary: #0284c7;
+            --secondary: #64748b;
+            --danger: #e11d48;
+            --bg: #f1f5f9;
+            --dark: #1e293b;
         }
-        #map { flex: 1; width: 100%; }
-        #sidebar {
-            width: 100%; max-height: 40vh; background-color: #003399;
-            color: white; padding: 15px; z-index: 1;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.3); overflow-y: auto;
+        body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 10px; background-color: var(--bg); padding-bottom: 80px; }
+        .container { max-width: 900px; margin: auto; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 700; color: var(--dark); font-size: 0.9rem; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; background: white; }
+
+        .subform-container { background: #ffffff; padding: 20px; border-radius: 8px; border: 1px solid #ddd; width: 100%; box-sizing: border-box; margin-top: 20px; }
+        .subform-title { font-size: 1.25rem; margin-bottom: 1.5rem; margin-top: 0; text-transform: uppercase; border-left: 5px solid; padding-left: 10px; }
+        .title-poda { color: #1a531c; border-left-color: #27ae60; }
+        .title-adecuar { color: #003399; border-left-color: #003399; }
+
+        .form-horizontal { display: flex; flex-direction: row; gap: 15px; align-items: flex-start; flex-wrap: wrap; }
+        .flex-1 { flex: 1; min-width: 200px; }
+        .flex-obs { flex: 2; min-width: 300px; }
+
+        .grid-form-mat { display: grid; grid-template-columns: 180px 1fr 80px 100px auto; gap: 12px; align-items: end; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .fam-tag { background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 11px; }
+        .tabla-materiales { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        .tabla-materiales th { background: #f8fafc; padding: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; font-size: 13px; }
+        .tabla-materiales td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        
+        .btn-submit { background: var(--dark); color: white; margin-top: 25px; width: 100%; padding: 15px; border-radius: 10px; font-size: 18px; border: none; cursor: pointer; }
+        .btn-add { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .geo-btn { background: #e0f2fe; color: var(--primary); border: 1px solid var(--primary); margin-bottom: 10px; font-weight: bold; width: 100%; padding: 12px; border-radius: 8px; }
+
+        .nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; border-top: 1px solid #e2e8f0; height: 65px; z-index: 1000; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; color: var(--secondary); cursor: pointer; }
+        .nav-item.active { color: var(--primary); font-weight: bold; }
+
+        /* Estilos sección exportar */
+        .export-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); margin-top: 20px; text-align: center; }
+        .btn-export { width: 100%; padding: 16px; margin: 10px 0; border-radius: 8px; border: none; font-weight: bold; color: white; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-csv { background: #059669; }
+        .btn-json { background: #4f46e5; }
+
+        @media (max-width: 768px) {
+            .form-horizontal { flex-direction: column; }
+            .grid-form-mat { grid-template-columns: 1fr; }
         }
-        @media (min-width: 768px) {
-            body { flex-direction: row; }
-            #sidebar { width: 320px; height: 100vh; max-height: 100vh; }
-            #map { height: 100vh; }
-        }
-        .upload-btn {
-            display: block; background-color: #00d4ff; color: #002266;
-            padding: 15px; border-radius: 8px; cursor: pointer;
-            font-weight: bold; width: 100%; margin: 10px 0; text-align: center;
-        }
-        input[type="file"] { display: none; }
-        .filter-group { margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; }
-        .filter-item { display: flex; align-items: center; margin-bottom: 12px; font-size: 0.9rem; }
-        .filter-item input { margin-right: 15px; width: 22px; height: 22px; }
     </style>
 </head>
 <body>
 
-<div id="map"></div>
+<div class="container">
+    <div id="screen-captura" class="screen active">
+        <h2 style="color: var(--dark)">Nueva Captura</h2>
+        <form id="frmInventario">
+            <div class="form-group">
+                <label>COORDENADAS GPS</label>
+                <button type="button" class="geo-btn" onclick="capturarGPS()">📍 Obtener Ubicación Actual</button>
+                <input type="text" id="coordenadas" readonly placeholder="Toque arriba para capturar...">
+            </div>
 
-<div id="sidebar">
-    <h2>Levantamiento</h2>
-    <p>Los puntos se centrarán en el promedio de sus coordenadas.</p>
-    
-    <label class="upload-btn" for="geojson-input">📁 Cargar archivo .json</label>
-    <input type="file" id="geojson-input" accept=".geojson,.json">
+            <div class="form-group">
+                <label>ELEMENTO EN FALLA</label>
+                <select id="elementoFalla" required>
+                    <option value="">Seleccione...</option>
+					<option value="LINEA">LINEA</option>
+                    <option value="POSTE">POSTE</option>
+                    <option value="BANCO">BANCO</option>
+                    <option value="PUENTE">PUENTE</option>
+                </select>
+            </div>
 
-    <div class="filter-group">
-        <strong>Equipos:</strong>
-        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 8px 0;">
-        <div id="filters">
-            <div class="filter-item"><input type="checkbox" class="filter-check" value="Partida principal" id="c1" checked><label for="c1">Partida principal</label></div>
-            <div class="filter-item"><input type="checkbox" class="filter-check" value="Seccionador" id="c2" checked><label for="c2">Seccionador</label></div>
-            <div class="filter-item"><input type="checkbox" class="filter-check" value="Transformador" id="c3" checked><label for="c3">Transformador</label></div>
-            <div class="filter-item"><input type="checkbox" class="filter-check" value="Medicion MT" id="c4" checked><label for="c4">Medición MT</label></div>
-            <div class="filter-item"><input type="checkbox" class="filter-check" value="Banco de condensadores" id="c5" checked><label for="c5">Banco de condensadores</label></div>
-            <div class="filter-item"><input type="checkbox" class="filter-check" value="Sin equipo" id="c6" checked><label for="c6">Sin equipo</label></div>
+            <div class="form-group">
+                <label>ACCIÓN A REALIZAR</label>
+                <select id="accion" required>
+                    <option value="">Seleccione...</option>
+                    <option value="PODAR O TALAR">PODAR O TALAR</option>
+                    <option value="ADECUAR">ADECUAR</option>
+                    <option value="SUSTITUIR O INSTALAR MATERIAL">SUSTITUIR O INSTALAR MATERIAL</option>
+                </select>
+            </div>
+
+            <div id="subform-poda" style="display: none;" class="subform-container">
+                <h2 class="subform-title title-poda">PODAR O TALAR</h2>
+                <div class="form-horizontal">
+                    <div class="flex-1">
+                        <label>TIPO DE ARBOL</label>
+                        <select id="tipoArbol">
+                            <option value="" disabled selected>Seleccione...</option>
+                            <option value="APAMATE">APAMATE</option>
+                            <option value="CAOBA">CAOBA</option>
+                            <option value="CARACARO">CARACARO</option>
+                            <option value="CEDRO">CEDRO</option>
+                            <option value="CEIBA">CEIBA</option>
+                            <option value="FISCO">FISCO</option>
+                            <option value="MANGO">MANGO</option>
+                            <option value="PERITA">PERITA</option>
+                            <option value="PINO">PINO</option>
+                            <option value="SAMAN">SAMAN</option>
+                            <option value="OTRO">OTRO</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label>CANT-PODA (MTS)</label>
+                        <input type="number" id="cantidadPoda" placeholder="0" min="0">
+                    </div>
+                    <div class="flex-obs">
+                        <label>OBSERVACIONES</label>
+                        <textarea id="observacionPoda" rows="2" placeholder="Detalles de la poda..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div id="subform-adecuar" style="display: none;" class="subform-container">
+                <h2 class="subform-title title-adecuar">ADECUAR</h2>
+                <div class="form-horizontal">
+                    <div class="flex-1">
+                        <label>ACCIÓN ADECUAR</label>
+                        <select id="opcionAdecuar">
+                            <option value="" disabled selected>Seleccione...</option>
+                            <option value="AJUSTAR CONEXIONES">AJUSTAR CONEXIONES</option>
+                            <option value="ENDEREZAR CRUCETA">ENDEREZAR CRUCETA</option>
+                            <option value="ENDEREZAR PERCHA">ENDEREZAR PERCHA</option>
+                            <option value="EQUILIBRAR CARGAS POR FASE">EQUILIBRAR CARGAS POR FASE</option>
+                            <option value="RETENSAR LINEA O VIENTO">RETENSAR LINEA O VIENTO</option>
+                            <option value="RETIRAR NIDO">RETIRAR NIDO</option>
+                            <option value="RETIRAR PAPAGAYO">RETIRAR PAPAGAYO</option>
+                            <option value="OTRA">OTRA</option>
+                        </select>
+                    </div>
+                    <div class="flex-obs">
+                        <label>OBSERVACIONES</label>
+                        <textarea id="observacionAdecuar" rows="2" placeholder="Detalles de la adecuación..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div id="subform-material" style="display: none;" class="subform-container">
+                <h3 style="margin-top:0; color: var(--primary)">MATERIALES E INSUMOS</h3>
+                <div class="grid-form-mat">
+                    <div>
+                        <label>Familia</label>
+                        <select id="matFamilia"><option value="">Seleccione...</option></select>
+                    </div>
+                    <div>
+                        <label>Material / Especificación</label>
+                        <select id="matEspecifico" disabled><option value="">Primero elija familia...</option></select>
+                    </div>
+                    <div>
+                        <label>Unidad</label>
+                        <input type="text" id="matUnidad" readonly style="background: #f1f5f9;">
+                    </div>
+                    <div>
+                        <label>Cantidad</label>
+                        <input type="number" id="matCantidad" placeholder="0" min="1">
+                    </div>
+                    <div>
+                        <button type="button" class="btn-add" onclick="agregarMaterialALista()">Añadir</button>
+                    </div>
+                </div>
+                <table class="tabla-materiales">
+                    <thead>
+                        <tr><th>Familia</th><th>Especificación</th><th>Unid.</th><th>Cant.</th><th></th></tr>
+                    </thead>
+                    <tbody id="tbodyMateriales"></tbody>
+                </table>
+            </div>
+
+            <button type="submit" class="btn-submit">💾 GUARDAR REGISTRO COMPLETO</button>
+        </form>
+    </div>
+
+    <div id="screen-exportar" class="screen">
+        <h2>Historial de Registros</h2>
+        <div id="listadoRegistros" style="margin-top: 20px;"></div>
+    </div>
+
+    <div id="screen-descargas" class="screen">
+        <h2>Exportar Datos</h2>
+        <div class="export-card">
+            <p>Generar archivo con todos los registros guardados:</p>
+            <button onclick="exportarProcesado('csv')" class="btn-export btn-csv">📊 Descargar CSV (Excel)</button>
+            <button onclick="exportarProcesado('json')" class="btn-export btn-json">📦 Descargar JSON (Respaldo)</button>
         </div>
     </div>
-    <p style="text-align: center; font-size: 0.7rem; margin-top: 15px;">Pedro Novelino</p>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="switchScreen('captura')">📝 Registro</div>
+    <div class="nav-item" onclick="switchScreen('exportar')">📜 Listado</div>
+    <div class="nav-item" onclick="switchScreen('descargas')">📥 Exportar</div>
 </div>
 
 <script>
-    const db = new Dexie("GeoJSON_Map_DB");
-    db.version(1).stores({ features: '++id, equipo' });
+    // --- CATALOGO MATERIALES ---
+    const catalogo = {
+        "Aisladores": ["AISL SUSP POLIMERICO 17,5KV DF360MM 45kN", "AISLADOR CARRETE PERCHA", "AISL.ESP PORC ROSCA 25,4 mm 15KV 55,5 C", "AISL.ESP.PORC ROSCA 3.49CM P/34.5KV", "AISL.SUSP POLIMERICO 36KV 760mm 45kN", "AISL.SUSP PORC C/ PAS Y CHAV 10KV 52,4 C", "AISL.SUSP PORC C/PAS Y CHAV 7,5KV 52.1Cl"],
+        "Conductores": ["COND AL ARVIDAL 336,4 KCM 19H CANTON", "COND AL DESNUDO ARVIDAL 1/0 7HILO", "COND AL DESNUDO ARVIDAL 2/0 7HILO", "COND AL DESNUDO ARVIDAL 4/0 7HILO", "COND AL DESNUDO ARVIDAL N° 2 7H AMES", "COND CU DESNUDO SOL 2 AWG", "COND CU DESNUDO SOL 4 AWG", "COND CU DESNUDO TZ 2/0 7 HILO", "COND CU DESNUDO TZ 4/0 7HILO", "CONDUCTOR ALUMINIO P/ATAR # 6", "CONDUCTOR TTU CU 600V 1/0 7H", "CONDUCTOR TTU CU 600V 2 AWG 7H", "CONDUCTOR TTU CU 600V 2/0 7H", "CONDUCTOR TTU CU 600V 4/0 7H"],
+        "Conectores": ["CONEC T/COMP AUT AL COND 1/0 AWG", "CONEC T/COMP AUT AL COND 2 AWG", "CONEC T/COMP AUT AL COND 2/0 AWG", "CONEC T/COMP AUT AL COND 4/0 AWG", "CONEC T/CUÑA BIMETAL 1/0 - 1/0", "CONEC T/CUÑA BIMETAL 1/0 - 2/0", "CONEC T/CUÑA BIMETAL 2/0 - 2/0", "CONEC T/CUÑA BIMETAL 2/0 - 4/0", "CONEC T/CUÑA BIMETAL 4/0 - 4/0", "CONEC T/CUÑA BIMETAL C/C 3/0-2", "CONEC T/CUÑA BIMETAL COND 556,5MCM", "CONEC T/CUÑA ESTRIBO C/C 4/0-2", "CONEC T/CUÑA ESTRIBO C/C 4/0-2/0", "CONECTOR KS-29", "CONECTOR KS23", "CONECTOR KSU-29", "CONECTOR PERMAGRIP 1/0 AWG CU/ALUMINIO", "CONECTOR PERMAGRIP 2/0 AWG CU/ALUMINIO", "CONECTOR PERMAGRIP 4/0 AWG CU/ALUMINIO", "CONECTOR PERMAGRIP Nro 2 AWG CU/ALUMINIO", "CONECTOR TIPO MECANICO MORDAZA AL 2 - 2/0 AWG", "CONECTOR TIPO MECANICO MORDAZA AL 4/0 - 6", "CONECTORES KSU-26"],
+        "Fusibles": ["LAMINA FUSIBLE TIPO K 1A", "LAMINA FUSIBLE TIPO K 2A", "LAMINA FUSIBLE TIPO K 3A", "LAMINA FUSIBLE TIPO K 4A", "LAMINA FUSIBLE TIPO K 5A", "LAMINA FUSIBLE TIPO K 6A", "LAMINA FUSIBLE TIPO K 8A", "LAMINA FUSIBLE TIPO K 10A", "LAMINA FUSIBLE TIPO K 15A", "LAMINA FUSIBLE TIPO K 20A", "LAMINA FUSIBLE TIPO K 25A", "LAMINA FUSIBLE TIPO K 30A", "LAMINA FUSIBLE TIPO K 40A", "LAMINA FUSIBLE TIPO K 50A", "LAMINA FUSIBLE TIPO K 60A", "LAMINA FUSIBLE TIPO K 65A", "LAMINA FUSIBLE TIPO K 70A", "LAMINA FUSIBLE TIPO K 75A", "LAMINA FUSIBLE TIPO K 80A", "LAMINA FUSIBLE TIPO K 100A"],
+        "Herrajes": ["ABRAZ 3T (101,6 X 114,3)MM (4 X 4 1/2 )\"", "ABRAZ 3T (127,0 X 139,7)MM (5 X 5 1/2)\"", "ABRAZ 3T (152,4 X 165,1)MM (6 X 6 1/2)\"", "ABRAZ 3T (177,8 X 190,5)MM (7 X 7 1/2)\"", "ABRAZ 3T (3 1/2 X 4)\"", "ABRAZ 3T (76,2 X 88,9)MM (3 X 3 1/2)\"", "ABRAZ 3T C/M (30.40X31.75)CM (12X121/2\")", "ABRAZ 4T (101,6 X 114,3)MM (4 X 4 1/2)\"", "ABRAZ 4T (127,0 X 139,7)MM (5 X 5 1/2)\"", "ABRAZ 4T (152,4 X 165,1)MM (6 X 6 1/2)\"", "ABRAZ 4T (177,8 X 190,5)MM (7 X 7 1/2)\"", "ABRAZ 4T (76,2 X 88,9)MM (3 X 3 1/2 )\"", "ABRAZ 4T (88,9 X 101,6)MM (3 1/2 X 4)\"", "ABRAZ 4T C/M (12.70 X 13,97)CM (5X51/2\")", "ABRAZADERA P/3 TRANSF 3-4 pul", "ABRAZADERA P/3 TRANSF 4-6 pul", "ABRAZADERA P/TRANSFORMADOR 3-4 pul", "ABRAZADERA P/TRANSFORMADOR 4-6 pul", "ADAPTADOR A/G 128 X 112 CRUCETA 3-4 1/2", "ANCLA EXPANSION 180X15,9X152mm 6X5/8\"", "ANCLA EXPANSION 210X22MM 8X5/8\"", "BARRA ANCLAJE 1 OJO 5/8 X 6\" 15,9x1800mm", "BARRA ANCLAJE 1 OJO 5/8 X 8\"", "BARRA P/TIERRA 15.9X204MM", "CORTAC. MONOP 13,8 KV-100A DF=280MM 12kA", "CORTAC. MONOP 34,5KV 200A DF=660MM", "CRUCETA A/G 1800X75X75X8 MM (1,80 MTS)", "CRUCETA A/G 2400X75X75X8 MM (2.40 MTS)", "CRUCETA H/G 3200x75X75X8 MM (3,20 MTS)", "ESPIGA P/AISL C/H 1,9X4,45X15,3X3,49 15K", "FLEJE A/I 1/2\"", "GRILLETE P/AISL.SUSP 15,8X10,16X4,13\"", "GRILLETE P/AISL.SUSP.A/G 166x38x12,7 MM", "GUARDA CABO P/ GUAYA 3/8\"", "GUAYA ACERO GALVANIZADA 3/8\"", "GUAYA DE ACERO GALVANIZADA 5/16", "HEBILLA DE 1-2", "PARARRAYO 34,5KV", "PARARRAYO POLIMERICO T/S.ESTAC 15/12,7KV", "PARARRAYO T/VALVULA 15KV", "PERCHA 2 AISLADORES", "PERCHA 3 AISLADORES", "PERCHA 4 AISLADORES", "PERCHA 5 AISLADORES", "PERNO OJO H/G 5/8X2X3/8X11/16", "PERNO T/ ROSCADO 5/8 X9", "PERNO T/ ROSCADO 5/8\"X16\" 15,90x400mm", "PERNO T/ ROSCADO 5/8\"X18\" 15,90x450mm", "PERNO T/ ROSCADO 8\" X 18", "PLETINA A/G (710 X 6,4) MM (28X1/4)\"", "PLETINA A/G (813 X 6,4)MM (32X 1/4)\"", "PLETINA A/G 30\"", "PORTA FUSIBLE P/ CORTAC 15 KV 150 BILL", "PORTA FUSIBLE P/CORTAC 34,5 KVA", "TORN HEX 16 X 80", "TORNILLO T/MAQ C/TUERCA HEXAG 3/8X1 1/2\""],
+        "Postes": ["POSTE ACERO 11.28 MT EC 211 KG", "POSTE ACERO 11.28 MT EC 237 KG", "POSTE ACERO 12.20 MT EC 282 KG", "POSTE ACERO 12.20 MT EC 437 KG", "POSTE ACERO 13.72 MT EC 250 KG", "POSTE ACERO 13.72 MT EC 388 KG", "POSTE ACERO 8.23 MT EC 116 KG", "POSTE ACERO 8.23 MT EC 178 KG", "POSTE ACERO 9.75 MT EC 218 KG", "POSTE ACERO 9,75M EC=246KG"],
+        "Transformadores": ["TRANSFORMADOR DE 10KVA 13800/120-240V", "TRANSFORMADOR DE 15KVA 13800/120-240V", "TRANSFORMADOR DE 25KVA 13800/120-240V", "TRANSFORMADOR DE 37.5KVA 13800/120-240V", "TRANSFORMADOR DE 50KVA 13800/120-240V", "TRANSFORMADOR DE 75KVA 13800/120-240V", "TRANSFORMADOR DE 100KVA 13800/120-240V", "TRANSFORMADOR DE 167.5KVA 13800/120-240V", "TRANSFORMADOR DE 10KVA 34500/120-240V", "TRANSFORMADOR DE 15KVA 34500/120-240V", "TRANSFORMADOR DE 25KVA 34500/120-240V", "TRANSFORMADOR DE 37.5KVA 34500/120-240V", "TRANSFORMADOR DE 50KVA 34500/120-240V", "TRANSFORMADOR DE 75KVA 34500/120-240V", "TRANSFORMADOR DE 100KVA 34500/120-240V", "TRANSFORMADOR DE 10KVA 19600/120-240V", "TRANSFORMADOR DE 15KVA 19600/120-240V", "TRANSFORMADOR DE 25KVA 19600/120-240V", "TRANSFORMADOR DE 37.5KVA 19600/120-240V", "TRANSFORMADOR DE 50KVA 19600/120-240V", "TRANSFORMADOR DE 75KVA 19600/120-240V", "TRANSFORMADOR DE 100KVA 19600/120-240V"]
+    };
+    const unidades = { "Aisladores": "UND", "Conductores": "MTS", "Postes": "UND", "Conectores": "UND", "Fusibles": "UND", "Herrajes": "UND", "Transformadores": "UND" };
+    let listaMateriales = [];
 
-    mapboxgl.accessToken = 'pk.eyJ1IjoicGV0ZXJub3ZlbCIsImEiOiJjaWdyZm9tdHcwMXl2djFrb2xoMmdvOTMyIn0.4cQYxMt9fl5gDtvDmJz_1w';
-    
-    const map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/light-v10', 
-        center: [-68.31, 9.91], 
-        zoom: 12
+    // --- DB DEXIE ---
+    const db = new Dexie("AppInventarioDB");
+    db.version(8).stores({ registros: '++id, coordenadas, elementoFalla, accion, fecha' });
+
+    // --- LÓGICA INTERFAZ ---
+    document.getElementById('accion').addEventListener('change', function() {
+        const val = this.value;
+        document.getElementById('subform-poda').style.display = (val === 'PODAR O TALAR') ? 'block' : 'none';
+        document.getElementById('subform-adecuar').style.display = (val === 'ADECUAR') ? 'block' : 'none';
+        document.getElementById('subform-material').style.display = (val === 'SUSTITUIR O INSTALAR MATERIAL') ? 'block' : 'none';
     });
 
-    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-    const geolocate = new mapboxgl.GeolocateControl({
-        positionOptions: { enableHighAccuracy: true },
-        trackUserLocation: true,
-        showUserHeading: true
-    });
-    map.addControl(geolocate, 'top-right');
+    const selectFam = document.getElementById('matFamilia');
+    const selectMat = document.getElementById('matEspecifico');
+    const inputUni = document.getElementById('matUnidad');
 
-    document.getElementById('geojson-input').addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = async function(event) {
-            try {
-                const data = JSON.parse(event.target.result);
-                await db.features.clear();
-                const itemsToStore = (data.features || []).map(f => ({
-                    geometry: f.geometry,
-                    properties: f.properties,
-                    equipo: f.properties.equipo || "Sin equipo"
-                }));
-                await db.features.bulkAdd(itemsToStore);
-                
-                // Al cargar archivo nuevo, centramos en el promedio
-                consultarYGraficar(true); 
-            } catch (err) {
-                alert("Error al procesar el archivo.");
-            }
-        };
-        reader.readAsText(file);
+    Object.keys(catalogo).forEach(f => {
+        let opt = document.createElement('option');
+        opt.value = f; opt.textContent = f;
+        selectFam.appendChild(opt);
     });
 
-    document.querySelectorAll('.filter-check').forEach(ck => {
-        ck.addEventListener('change', () => consultarYGraficar(false));
-    });
-
-    async function consultarYGraficar(centrarEnPromedio = false) {
-        const selectedEquipos = Array.from(document.querySelectorAll('.filter-check:checked')).map(c => c.value);
-        const records = await db.features.where('equipo').anyOf(selectedEquipos).toArray();
-        
-        if (records.length === 0) return;
-
-        const geojson = {
-            type: 'FeatureCollection',
-            features: records.map(r => ({ type: 'Feature', geometry: r.geometry, properties: r.properties }))
-        };
-
-        renderGeoJSON(geojson);
-
-        if (centrarEnPromedio) {
-            let sumLng = 0;
-            let sumLat = 0;
-            let count = 0;
-
-            records.forEach(r => {
-                if (r.geometry && r.geometry.coordinates) {
-                    sumLng += r.geometry.coordinates[0];
-                    sumLat += r.geometry.coordinates[1];
-                    count++;
-                }
+    selectFam.addEventListener('change', function() {
+        selectMat.innerHTML = '<option value="">Seleccione Material...</option>';
+        if(this.value) {
+            catalogo[this.value].forEach(m => {
+                let opt = document.createElement('option');
+                opt.value = m; opt.textContent = m;
+                selectMat.appendChild(opt);
             });
-
-            if (count > 0) {
-                const avgLng = sumLng / count;
-                const avgLat = sumLat / count;
-                
-                // Centrar suavemente en el promedio calculado
-                map.flyTo({
-                    center: [avgLng, avgLat],
-                    zoom: 14,
-                    essential: true
-                });
-            }
+            selectMat.disabled = false;
+            inputUni.value = unidades[this.value] || "UND";
+        } else {
+            selectMat.disabled = true;
+            inputUni.value = "";
         }
+    });
+
+    function agregarMaterialALista() {
+        const fam = selectFam.value;
+        const mat = selectMat.value;
+        const cant = document.getElementById('matCantidad').value;
+        if(!fam || !mat || cant <= 0) return alert("Complete los datos");
+        listaMateriales.push({ idMaterial: Date.now(), familia: fam, espec: mat, unidad: inputUni.value, cantidad: cant });
+        renderTabla();
+        document.getElementById('matCantidad').value = "";
     }
 
-    function renderGeoJSON(data) {
-        const sourceId = 'user-data';
-        if (map.getSource(sourceId)) {
-            map.getSource(sourceId).setData(data);
+    function renderTabla() {
+        const tbody = document.getElementById('tbodyMateriales');
+        tbody.innerHTML = "";
+        listaMateriales.forEach(m => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td><span class="fam-tag">${m.familia}</span></td><td>${m.espec}</td><td>${m.unidad}</td><td>${m.cantidad}</td>
+                <td><button type="button" style="color:red; border:none; background:none; cursor:pointer" onclick="borrarMaterial(${m.idMaterial})">Borrar</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function borrarMaterial(id) {
+        listaMateriales = listaMateriales.filter(x => x.idMaterial !== id);
+        renderTabla();
+    }
+
+    function capturarGPS() {
+        const input = document.getElementById('coordenadas');
+        input.value = "Obteniendo...";
+        navigator.geolocation.getCurrentPosition(
+            (p) => input.value = `${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`,
+            () => { alert("Error GPS"); input.value = ""; }
+        );
+    }
+
+    document.getElementById('frmInventario').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const acc = document.getElementById('accion').value;
+        const registro = {
+            coordenadas: document.getElementById('coordenadas').value,
+            elementoFalla: document.getElementById('elementoFalla').value,
+            accion: acc,
+            fecha: new Date().toISOString(),
+            tipoArbol: acc === 'PODAR O TALAR' ? document.getElementById('tipoArbol').value : "",
+            cantidadPoda: acc === 'PODAR O TALAR' ? document.getElementById('cantidadPoda').value : "",
+            obsPoda: acc === 'PODAR O TALAR' ? document.getElementById('observacionPoda').value : "",
+            opcionAdecuar: acc === 'ADECUAR' ? document.getElementById('opcionAdecuar').value : "",
+            obsAdecuar: acc === 'ADECUAR' ? document.getElementById('observacionAdecuar').value : "",
+            materiales: acc === 'SUSTITUIR O INSTALAR MATERIAL' ? [...listaMateriales] : []
+        };
+        if(!registro.coordenadas) return alert("Falta GPS");
+        await db.registros.add(registro);
+        alert("💾 Guardado");
+        e.target.reset();
+        listaMateriales = []; renderTabla();
+        document.querySelectorAll('.subform-container').forEach(s => s.style.display = 'none');
+    });
+
+    // --- NUEVAS FUNCIONES DE EXPORTACIÓN (FORMATO SOLICITADO) ---
+
+    function getFormattedFileName(extension) {
+        const d = new Date();
+        const anio = d.getFullYear();
+        const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+        const dia = d.getDate().toString().padStart(2, '0');
+        const hora = d.getHours().toString().padStart(2, '0');
+        const min = d.getMinutes().toString().padStart(2, '0');
+        
+        // Formato AAAAMMDD_HHMM
+        return `${anio}${mes}${dia}_${hora}${min}.${extension}`;
+    }
+
+    async function exportarProcesado(formato) {
+        const registros = await db.registros.toArray();
+        if (registros.length === 0) return alert("No hay datos para exportar.");
+
+        let blob;
+        const fileName = getFormattedFileName(formato);
+
+        if (formato === 'csv') {
+            let csvContent = "ID;Fecha;GPS;Elemento;Accion;Poda_Arbol;Poda_Mts;Adecuar_Opcion;Materiales\n";
+            registros.forEach(r => {
+                let matString = r.materiales.map(m => `${m.espec}(${m.cantidad})`).join(" | ");
+                csvContent += `${r.id};${r.fecha};${r.coordenadas};${r.elementoFalla};${r.accion};${r.tipoArbol};${r.cantidadPoda};${r.opcionAdecuar};"${matString}"\n`;
+            });
+            blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         } else {
-            map.addSource(sourceId, { type: 'geojson', data: data });
-            map.addLayer({
-                id: 'route-points',
-                type: 'circle',
-                source: sourceId,
-                paint: {
-                    'circle-radius': 10,
-                    'circle-color': '#ff5500',
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#ffffff'
-                }
-            });
-            map.addLayer({
-                id: 'point-labels',
-                type: 'symbol',
-                source: sourceId,
-                layout: {
-                    'text-field': ['get', 'id'],
-                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 10,
-                },
-                paint: { 'text-color': '#ffffff' }
-            });
+            blob = new Blob([JSON.stringify(registros, null, 2)], { type: 'application/json' });
         }
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+    }
+
+    function switchScreen(s) {
+        document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+        document.getElementById(`screen-${s}`).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+        const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(n => n.onclick.toString().includes(s));
+        if(activeNav) activeNav.classList.add('active');
     }
 </script>
-
 </body>
 </html>
